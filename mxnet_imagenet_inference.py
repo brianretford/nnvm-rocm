@@ -1,4 +1,4 @@
-"""
+"""://mxnet.incubator.apache.org/versions/master/api/python/gluon/model_zoo.html
 The list of available gluon models are here
 https://mxnet.incubator.apache.org/versions/master/api/python/gluon/model_zoo.html
 
@@ -19,7 +19,7 @@ from mxnet.gluon.utils import download
 from PIL import Image
 from matplotlib import pyplot as plt
 
-model = "resnet50_v1"
+model = "vgg19"
 print("Testing model %s" % model)
 block = get_model(model, pretrained=True)
 img_name = 'data/cat.png'
@@ -53,7 +53,7 @@ sym = nnvm.sym.softmax(sym)
 ######################################################################
 # now compile the graph
 import nnvm.compiler
-target = 'rocm'
+target = 'opencl'
 shape_dict = {'data': x.shape}
 graph, lib, params = nnvm.compiler.build(sym, target, shape_dict, params=params)
 
@@ -62,15 +62,25 @@ graph, lib, params = nnvm.compiler.build(sym, target, shape_dict, params=params)
 # ---------------------------------
 # Now, we would like to reproduce the same forward computation using TVM.
 from tvm.contrib import graph_runtime
-ctx = tvm.rocm(0)
+ctx = tvm.opencl(0)
 dtype = 'float32'
 m = graph_runtime.create(graph, lib, ctx)
+
 # set inputs
-m.set_input('data', tvm.nd.array(x.astype(dtype)))
+arr = tvm.nd.array(x.astype(dtype))
+m.set_input('data', arr)
 m.set_input(**params)
 # execute
 m.run()
+import time
+s = time.time()
+for n in range(1024):
+    # set inputs
+    m.set_input('data', arr)
+    m.set_input(**params)
+    m.run()
 # get outputs
-tvm_output = m.get_output(0, tvm.nd.empty((1000,), dtype))
+    tvm_output = m.get_output(0, tvm.nd.empty((1000,), dtype))
+print("Per example: {}".format((time.time()-s)/1024))
 top1 = np.argmax(tvm_output.asnumpy())
 print('TVM prediction top-1:', top1, synset[top1])
