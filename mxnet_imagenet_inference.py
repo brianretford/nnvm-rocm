@@ -19,7 +19,9 @@ from mxnet.gluon.utils import download
 from PIL import Image
 from matplotlib import pyplot as plt
 
-model = "vgg19"
+#model = "resnet50_v1"
+model = "mobilenet1.0"
+#model = "inceptionv3"
 print("Testing model %s" % model)
 block = get_model(model, pretrained=True)
 img_name = 'data/cat.png'
@@ -34,7 +36,7 @@ def transform_image(image):
     image = np.array(image) - np.array([123., 117., 104.])
     image /= np.array([58.395, 57.12, 57.375])
     image = image.transpose((2, 0, 1))
-    image = image[np.newaxis, :]
+    image = image[np.newaxis]
     return image
 
 x = transform_image(image)
@@ -62,7 +64,7 @@ graph, lib, params = nnvm.compiler.build(sym, target, shape_dict, params=params)
 # ---------------------------------
 # Now, we would like to reproduce the same forward computation using TVM.
 from tvm.contrib import graph_runtime
-ctx = tvm.opencl(0)
+ctx = tvm.opencl()
 dtype = 'float32'
 m = graph_runtime.create(graph, lib, ctx)
 
@@ -76,11 +78,6 @@ import time
 s = time.time()
 for n in range(1024):
     # set inputs
-    m.set_input('data', arr)
-    m.set_input(**params)
     m.run()
-# get outputs
-    tvm_output = m.get_output(0, tvm.nd.empty((1000,), dtype))
+    ctx.sync()
 print("Per example: {}".format((time.time()-s)/1024))
-top1 = np.argmax(tvm_output.asnumpy())
-print('TVM prediction top-1:', top1, synset[top1])
