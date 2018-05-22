@@ -77,7 +77,7 @@ m.run()
 import time
 s = time.time()
 for n in range(1024):
-    # set inputs
     m.run()
     ctx.sync()
-print("Per example: {}".format((time.time()-s)/1024))
+tt = (time.time() - s)/1024
+print("Per example: {}, inferences/sec: {}".format(tt, 1.0/tt))
